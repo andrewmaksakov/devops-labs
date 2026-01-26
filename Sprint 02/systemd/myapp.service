@@ -1,0 +1,13 @@
+[Unit]
+Description=My Test Python App
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/myapp/myapp.py
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
