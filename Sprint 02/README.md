@@ -162,9 +162,9 @@ journalctl -u myapp.service -f
 
 ## Экзамен (самопроверка)
 
-- [ ] `systemctl status myapp` показывает "active (running)"
-- [ ] `journalctl -u myapp` показывает логи приложения
-- [ ] После `sudo systemctl stop myapp` — процесс корректно завершается (SIGTERM)
-- [ ] После `sudo kill -9 <PID>` — процесс убит принудительно
-- [ ] Могу объяснить разницу между SIGTERM и SIGKILL
-- [ ] Сервис автоматически перезапускается после падения
+- [x] `systemctl status myapp` показывает "active (running)"
+- [x] `journalctl -u myapp` показывает логи приложения
+- [x] После `sudo systemctl stop myapp` — процесс корректно завершается (SIGTERM)
+- [x] После `sudo kill -9 <PID>` — процесс убит принудительно
+- [x] Могу объяснить разницу между SIGTERM и SIGKILL
+- [x] Сервис автоматически перезапускается после падения
