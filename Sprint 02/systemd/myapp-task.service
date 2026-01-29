@@ -1,0 +1,8 @@
+[Unit]
+Description=My App Scheduled Task
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/myapp/myapp-task.py
+StandardOutput=journal
+StandardError=journal
