@@ -227,7 +227,7 @@ tcpdump -i any -n host 10.0.0.1   # Трафик к/от конкретного 
 
 ### 1. Установить и настроить Nginx
 
-Поставить Nginx, настроить как reverse proxy для сервиса (например, Python http.server на порту 8000).
+Поставить Nginx, настроить как reverse proxy для простого backend (`python3 -m http.server 8000`).
 
 ### 2. Настроить HTTPS с self-signed сертификатом
 
@@ -277,7 +277,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 
-# 5. Запустить backend (из Sprint 02 или простой)
+# 5. Запустить backend
 python3 -m http.server 8000 &
 
 # 6. Проверить
