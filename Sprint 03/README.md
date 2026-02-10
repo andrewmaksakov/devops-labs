@@ -1,0 +1,298 @@
+# Sprint 03 — Сеть: порты, DNS, HTTP, TLS, диагностика
+
+**Цель:** уметь чинить "не открывается сайт / не ходит запрос"
+
+**Длительность:** 2 недели
+
+---
+
+## Теория
+
+### Как работает запрос к сайту
+
+```
+Пользователь вбил https://example.com/api
+        ↓
+1. DNS-резолвинг   → "какой IP у example.com?"  → 93.184.216.34
+        ↓
+2. TCP-соединение  → подключение к 93.184.216.34:443
+        ↓
+3. TLS-handshake   → проверка сертификата + шифрование
+        ↓
+4. HTTP-запрос     → GET /api HTTP/1.1 → ответ 200 OK
+```
+
+Если "не работает" — ломается один из этих шагов. Для каждого есть свой инструмент.
+
+---
+
+### 1. Сетевые интерфейсы и IP
+
+Каждая машина имеет сетевые интерфейсы — это "точки подключения" к сети.
+
+```bash
+ip addr                  # Показать все интерфейсы и их IP-адреса
+ip route                 # Таблица маршрутизации (куда идёт трафик)
+ip link                  # Состояние интерфейсов (up/down)
+```
+
+**Типичные интерфейсы:**
+| Интерфейс | Описание |
+|-----------|----------|
+| `lo` | Loopback — localhost (127.0.0.1), только для себя |
+| `eth0` | Проводная сеть (в WSL это основной интерфейс) |
+| `wlan0` | Wi-Fi (если есть) |
+| `docker0` | Docker bridge сеть (появится в Sprint 06) |
+
+**Что такое порт?**
+
+IP-адрес — это адрес машины. Порт — это "дверь" на машине для конкретного сервиса.
+
+- `80` — HTTP
+- `443` — HTTPS
+- `22` — SSH
+- `5432` — PostgreSQL
+- `3000-9000` — обычно приложения
+
+Аналогия: IP = адрес дома, порт = номер квартиры.
+
+---
+
+### 2. Порты и соединения (ss)
+
+`ss` (socket statistics) — смотрим кто слушает какие порты и текущие соединения.
+
+```bash
+ss -tlnp                 # TCP, Listening, Numeric, Process
+                         # -t = TCP
+                         # -l = только слушающие (LISTEN)
+                         # -n = показывать номера портов (не имена)
+                         # -p = показывать процесс
+
+ss -tunap                # Все соединения (TCP + UDP), все состояния
+```
+
+**Пример вывода `ss -tlnp`:**
+```
+State   Local Address:Port   Process
+LISTEN  0.0.0.0:80           nginx
+LISTEN  0.0.0.0:22           sshd
+LISTEN  127.0.0.1:8000       python3
+```
+
+Здесь видно:
+- Nginx слушает порт 80 **на всех интерфейсах** (0.0.0.0)
+- Python слушает порт 8000 **только на localhost** (127.0.0.1) — снаружи не доступен
+
+---
+
+### 3. DNS
+
+DNS (Domain Name System) — "телефонная книга интернета". Переводит имена в IP.
+
+**Типы записей:**
+| Тип | Описание | Пример |
+|-----|----------|--------|
+| `A` | Имя → IPv4 | `example.com → 93.184.216.34` |
+| `AAAA` | Имя → IPv6 | `example.com → 2606:2800:220:1:...` |
+| `CNAME` | Алиас на другое имя | `www.example.com → example.com` |
+| `MX` | Почтовый сервер | `example.com → mail.example.com` |
+| `NS` | DNS-сервер для домена | `example.com → ns1.example.com` |
+
+**TTL (Time To Live)** — сколько секунд кешировать ответ. TTL=300 значит "через 5 минут спроси заново".
+
+```bash
+dig example.com          # Запрос DNS (подробный)
+dig +short example.com   # Только IP
+dig example.com A        # Конкретный тип записи
+dig @8.8.8.8 example.com # Спросить у конкретного DNS-сервера
+nslookup example.com     # Простой DNS-запрос (устаревший, но работает)
+```
+
+**Файл `/etc/resolv.conf`** — какие DNS-серверы использует система:
+```
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+```
+
+---
+
+### 4. HTTP
+
+HTTP (HyperText Transfer Protocol) — протокол общения браузера с сервером.
+
+**Структура запроса:**
+```
+GET /api/users HTTP/1.1       ← метод, путь, версия
+Host: example.com             ← заголовки
+Accept: application/json
+Authorization: Bearer <token>
+                              ← пустая строка
+                              ← тело (для POST/PUT)
+```
+
+**Структура ответа:**
+```
+HTTP/1.1 200 OK               ← статус
+Content-Type: application/json ← заголовки
+Content-Length: 42
+                               ← пустая строка
+{"users": [...]}               ← тело
+```
+
+**Коды ответов:**
+| Код | Значение | Когда |
+|-----|----------|-------|
+| `200` | OK | Всё хорошо |
+| `301` | Moved Permanently | Редирект навсегда (HTTP → HTTPS) |
+| `302` | Found | Временный редирект |
+| `304` | Not Modified | Используй кеш |
+| `400` | Bad Request | Кривой запрос от клиента |
+| `401` | Unauthorized | Не авторизован |
+| `403` | Forbidden | Доступ запрещён |
+| `404` | Not Found | Страница не найдена |
+| `500` | Internal Server Error | Сервер сломался |
+| `502` | Bad Gateway | Прокси не может достучаться до backend |
+| `503` | Service Unavailable | Сервис перегружен / на обслуживании |
+| `504` | Gateway Timeout | Прокси ждал backend, но тот не ответил |
+
+**curl — главный инструмент:**
+```bash
+curl http://localhost             # Простой GET
+curl -v http://localhost          # Verbose — показать заголовки запроса и ответа
+curl -I http://localhost          # Только заголовки ответа (HEAD)
+curl -o /dev/null -s -w "%{http_code}" http://localhost   # Только код ответа
+curl -X POST -d '{"key":"val"}' -H "Content-Type: application/json" http://localhost/api
+curl -L http://localhost          # Следовать за редиректами
+curl -k https://localhost         # Игнорировать ошибки сертификата
+```
+
+---
+
+### 5. TLS/SSL
+
+TLS (Transport Layer Security) — шифрование трафика. HTTPS = HTTP + TLS.
+
+**Зачем:** без TLS трафик летит открытым текстом — любой на пути видит пароли, куки, данные.
+
+**Как работает (упрощённо):**
+1. Клиент подключается к серверу
+2. Сервер показывает сертификат ("я точно example.com, вот доказательство")
+3. Клиент проверяет: сертификат подписан доверенным CA? Не истёк? Имя совпадает?
+4. Если всё ок — договариваются о шифровании, дальше трафик зашифрован
+
+**Self-signed сертификат** — подписан сам собой, не доверенным CA. Браузер покажет предупреждение, но шифрование работает. Для dev/тестов — нормально.
+
+```bash
+# Проверить сертификат сайта
+openssl s_client -connect example.com:443 -servername example.com </dev/null 2>/dev/null | openssl x509 -text -noout
+
+# Проверить срок действия
+echo | openssl s_client -connect example.com:443 2>/dev/null | openssl x509 -dates -noout
+```
+
+---
+
+### 6. Nginx как reverse proxy
+
+**Reverse proxy** — сервер, который принимает запросы от клиентов и перенаправляет их на backend.
+
+```
+Клиент → Nginx (:80/:443) → Приложение (:8000)
+```
+
+**Зачем:**
+- TLS-терминация (Nginx разбирает HTTPS, backend получает обычный HTTP)
+- Один порт наружу (80/443), внутри может быть 10 сервисов
+- Балансировка нагрузки
+- Статика (Nginx отдаёт файлы, backend только API)
+
+---
+
+### 7. Диагностика (traceroute, tcpdump)
+
+```bash
+traceroute example.com   # Маршрут пакета до цели (через какие узлы)
+mtr example.com          # traceroute + ping в реальном времени
+
+tcpdump -i eth0 port 80  # Перехват трафика на порту 80
+tcpdump -i any -n host 10.0.0.1   # Трафик к/от конкретного хоста
+```
+
+`tcpdump` — "рентген" сети. Показывает каждый пакет. Используй когда ничего другое не помогло.
+
+---
+
+## Практические задания
+
+### 1. Установить и настроить Nginx
+
+Поставить Nginx, настроить как reverse proxy для сервиса (например, Python http.server на порту 8000).
+
+### 2. Настроить HTTPS с self-signed сертификатом
+
+Сгенерировать сертификат, настроить Nginx для HTTPS, проверить через curl.
+
+### 3. Создать network-cheatsheet.md
+
+10 команд для диагностики сети — "шпаргалка на каждый день".
+
+### 4. Документировать типичные проблемы
+
+`troubleshooting.md` — типовые сетевые проблемы и как их решать.
+
+---
+
+## Структура папки
+
+```
+Sprint 03/
+├── README.md                  # Теория + задания
+├── configs/
+│   ├── nginx.conf             # Основной конфиг Nginx
+│   └── myapp-proxy.conf       # Конфиг reverse proxy + TLS
+├── scripts/
+│   └── gen-cert.sh            # Генерация self-signed сертификата
+├── network-cheatsheet.md      # 10 команд диагностики
+└── troubleshooting.md         # Типовые сетевые проблемы
+```
+
+---
+
+## Как развернуть
+
+```bash
+# 1. Установить Nginx
+sudo apt update && sudo apt install -y nginx
+
+# 2. Сгенерировать сертификат
+bash scripts/gen-cert.sh
+
+# 3. Скопировать конфиги
+sudo cp configs/myapp-proxy.conf /etc/nginx/sites-available/myapp
+sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/myapp
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# 4. Проверить конфиг и перезапустить
+sudo nginx -t
+sudo systemctl restart nginx
+
+# 5. Запустить backend (из Sprint 02 или простой)
+python3 -m http.server 8000 &
+
+# 6. Проверить
+curl -v http://localhost
+curl -vk https://localhost
+```
+
+---
+
+## Экзамен (самопроверка)
+
+- [ ] `curl http://localhost` возвращает ответ от backend через Nginx
+- [ ] `curl -k https://localhost` работает (self-signed TLS)
+- [ ] `ss -tlnp` показывает Nginx на портах 80 и 443
+- [ ] `dig` возвращает DNS-записи для любого домена
+- [ ] Могу объяснить разницу между 502 и 504
+- [ ] Могу объяснить что делает reverse proxy
+- [ ] `openssl s_client` показывает сертификат
