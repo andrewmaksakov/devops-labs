@@ -179,15 +179,34 @@ Content-Length: 42
 | `503` | Service Unavailable | Сервис перегружен / на обслуживании |
 | `504` | Gateway Timeout | Прокси ждал backend, но тот не ответил |
 
-**curl — главный инструмент:**
+**curl — главный инструмент для отправки HTTP-запросов из терминала (как браузер, только в командной строке).**
+
+**Флаги curl:**
+
+| Флаг | Что делает | Пример |
+|------|-----------|--------|
+| (без флагов) | Простой GET-запрос, показывает тело ответа | `curl http://localhost` |
+| `-v` | Verbose — показывает весь диалог: что отправил клиент (`>`), что ответил сервер (`<`) | `curl -v http://localhost` |
+| `-s` | Silent — убирает прогресс-бар, чистый вывод | `curl -s http://localhost` |
+| `-o /dev/null` | Не показывать тело ответа (выкинуть в никуда) | `curl -s -o /dev/null http://localhost` |
+| `-w "%{http_code}"` | Вывести только код ответа (200, 404, 502...) | `curl -s -o /dev/null -w "%{http_code}" http://localhost` |
+| `-I` | Только заголовки ответа, без тела | `curl -I http://localhost` |
+| `-k` | Игнорировать ошибки сертификата (для self-signed) | `curl -k https://localhost` |
+| `-L` | Следовать за редиректами (301, 302) | `curl -L http://localhost` |
+| `-X POST` | Указать метод запроса (POST, PUT, DELETE) | `curl -X POST http://localhost/api` |
+| `-d '...'` | Отправить данные в теле запроса | `curl -X POST -d '{"key":"val"}' http://localhost/api` |
+| `-H "..."` | Добавить заголовок к запросу | `curl -H "Content-Type: application/json" http://localhost` |
+
+**Частые комбинации:**
 ```bash
-curl http://localhost             # Простой GET
-curl -v http://localhost          # Verbose — показать заголовки запроса и ответа
-curl -I http://localhost          # Только заголовки ответа (HEAD)
-curl -o /dev/null -s -w "%{http_code}" http://localhost   # Только код ответа
-curl -X POST -d '{"key":"val"}' -H "Content-Type: application/json" http://localhost/api
-curl -L http://localhost          # Следовать за редиректами
-curl -k https://localhost         # Игнорировать ошибки сертификата
+# Узнать только код ответа
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost
+
+# Посмотреть весь диалог с HTTPS (self-signed)
+curl -vk https://localhost
+
+# Пойти за редиректом HTTP → HTTPS (self-signed)
+curl -skL http://localhost
 ```
 
 ---
