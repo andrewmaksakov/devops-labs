@@ -348,10 +348,10 @@ curl -vk https://localhost
 
 ## Экзамен (самопроверка)
 
-- [ ] `curl http://localhost` возвращает ответ от backend через Nginx
-- [ ] `curl -k https://localhost` работает (self-signed TLS)
-- [ ] `ss -tlnp` показывает Nginx на портах 80 и 443
-- [ ] `dig` возвращает DNS-записи для любого домена
-- [ ] Могу объяснить разницу между 502 и 504
-- [ ] Могу объяснить что делает reverse proxy
-- [ ] `openssl s_client` показывает сертификат
+- [x] `curl http://localhost` возвращает ответ от backend через Nginx
+- [x] `curl -k https://localhost` работает (self-signed TLS)
+- [x] `ss -tlnp` показывает Nginx на портах 80 и 443
+- [x] `dig` возвращает DNS-записи для любого домена
+- [x] Могу объяснить разницу между 502 и 504
+- [x] Могу объяснить что делает reverse proxy
+- [x] `openssl s_client` показывает сертификат
