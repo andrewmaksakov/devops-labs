@@ -72,6 +72,8 @@ ls -la /etc/nginx/sites-enabled/
 sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/myapp
 ```
 
+**Шпаргалка одной строкой:** Nginx читает конфиги из `sites-enabled`, где лежат симлинки на файлы из `sites-available` — создал симлинк = сайт включён, удалил = выключен.
+
 ---
 
 ## Практические задания
