@@ -150,8 +150,5 @@ ansible-playbook -i inventory.ini playbook.yml --ask-become-pass
 - [x] `log_parser.py` считает топ ошибок из лог-файла
 - [x] Ansible playbook разворачивает Nginx + сервис одной командой
 - [x] Второй запуск playbook не ломает и не делает лишнего (idempotency)
-- [ ] Могу объяснить что такое idempotency и почему `changed=0` это доказывает
-- [ ] Могу объяснить что делает каждый модуль: `apt`, `copy`, `file`, `systemd`
-- [ ] Могу объяснить зачем `daemon_reload` после копирования юнита
-- [ ] Могу объяснить как работает `argparse` и зачем нужен `Counter`
+- [ ] Могу объяснить что такое idempotency
 - [ ] Могу объяснить почему Ansible лучше ручных шагов
