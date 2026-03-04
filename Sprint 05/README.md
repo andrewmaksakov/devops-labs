@@ -93,10 +93,24 @@ Sprint 05/
 
 ---
 
+## Как запустить
+
+```bash
+# Запустить парсер логов
+python3 tools/log_parser.py --file /var/log/nginx/error.log --top 5
+python3 tools/log_parser.py --file /var/log/nginx/error.log --level error
+
+# Запустить Ansible playbook
+cd ansible/
+ansible-playbook -i inventory.ini playbook.yml --ask-become-pass
+```
+
+---
+
 ## Экзамен (самопроверка)
 
-- [ ] `log_parser.py` считает топ ошибок из лог-файла
-- [ ] Ansible playbook разворачивает Nginx + сервис одной командой
-- [ ] Второй запуск playbook не ломает и не делает лишнего (idempotency)
+- [x] `log_parser.py` считает топ ошибок из лог-файла
+- [x] Ansible playbook разворачивает Nginx + сервис одной командой
+- [x] Второй запуск playbook не ломает и не делает лишнего (idempotency)
 - [ ] Могу объяснить что такое idempotency
 - [ ] Могу объяснить почему Ansible лучше ручных шагов

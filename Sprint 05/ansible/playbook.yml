@@ -1,0 +1,65 @@
+---
+- name: Deploy Nginx + myapp service
+  hosts: local
+  become: true
+
+  tasks:
+    # 1. Устанавливаем Nginx
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: true
+
+    # 2. Копируем конфиг Nginx в sites-available
+    - name: Copy Nginx config
+      copy:
+        src: files/myapp-proxy.conf
+        dest: /etc/nginx/sites-available/myapp
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 3. Создаём симлинк в sites-enabled (включаем сайт)
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/myapp
+        dest: /etc/nginx/sites-enabled/myapp
+        state: link
+
+    # 4. Копируем systemd unit
+    - name: Copy myapp.service
+      copy:
+        src: files/myapp.service
+        dest: /etc/systemd/system/myapp.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 5. Копируем systemd timer
+    - name: Copy myapp.timer
+      copy:
+        src: files/myapp.timer
+        dest: /etc/systemd/system/myapp.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 6. Перечитываем systemd после изменений
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+    # 7. Запускаем и включаем автозапуск Nginx
+    - name: Start and enable Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    # 8. Запускаем и включаем таймер
+    - name: Start and enable myapp.timer
+      systemd:
+        name: myapp.timer
+        state: started
+        enabled: true
