@@ -107,7 +107,7 @@ devops-labs/
 - `tools/log_parser.py` — топ ошибок по паттернам
 - Ansible playbook: Nginx + конфиг + systemd unit + запуск
 
-**Статус:** ⬜ Не начат
+**Статус:** 🔄 В процессе
 
 ---
 
