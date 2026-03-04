@@ -14,19 +14,46 @@
 
 С автоматизацией: пишешь инструкции один раз → запускаешь на любом количестве серверов.
 
+---
+
 ### Python CLI
 
-**CLI (Command Line Interface)** — программа которая запускается из командной строки и принимает аргументы.
+**CLI (Command Line Interface)** — программа, которая запускается из командной строки и принимает аргументы.
 
 ```bash
-python3 log_parser.py --file /var/log/nginx/error.log --top 10
+python3 log_parser.py --file /var/log/nginx/error.log --top 10 --level error
 ```
 
 | Понятие | Что это |
 |---------|--------|
-| Аргументы | Параметры которые передаёшь программе при запуске |
-| `argparse` | Стандартная библиотека Python для разбора аргументов |
-| Парсинг логов | Чтение лог-файла и поиск паттернов (ошибок, событий) |
+| Аргументы | Параметры, которые передаёшь программе при запуске (`--file`, `--top`, `--level`) |
+| `argparse` | Стандартная библиотека Python для разбора аргументов командной строки |
+| `required=True` | Аргумент обязателен — без него программа упадёт с ошибкой |
+| `default=10` | Значение по умолчанию — если аргумент не передан, используется это |
+| Парсинг логов | Чтение лог-файла и поиск паттернов (ошибок, событий) с помощью регулярных выражений |
+| `re.search()` | Поиск паттерна в строке. Возвращает совпадение или `None` |
+| `Counter` | Класс из `collections`. Считает сколько раз встречается каждый элемент |
+| `.most_common(N)` | Метод Counter — возвращает топ N самых частых элементов |
+
+### Что делает log_parser.py (4 шага по порядку)
+
+1. **Разбирает аргументы** (`parse_args`) — `--file` (обязательный), `--top` (default 10), `--level` (optional)
+2. **Читает файл** (`read_log`) — открывает лог и возвращает список строк; если файл не найден — выводит ошибку и выходит
+3. **Извлекает сообщения** (`extract_message`) — для каждой строки ищет паттерн регуляркой: сначала Nginx-формат (`[error] 123#0: *1 message`), потом systemd-формат; возвращает пару (уровень, сообщение)
+4. **Считает топ** — фильтрует по уровню если задан, складывает сообщения в `Counter`, выводит `most_common(top)`
+
+**Формат Nginx-лога:**
+```
+2026/02/17 10:00:01 [error] 123#0: *1 connect() failed (111: Connection refused)
+                    ↑уровень         ↑сообщение
+```
+
+**Пример запуска:**
+```bash
+python3 tools/log_parser.py --file /var/log/nginx/error.log --top 5 --level error
+```
+
+---
 
 ### Ansible
 
@@ -34,11 +61,16 @@ python3 log_parser.py --file /var/log/nginx/error.log --top 10
 
 | Понятие | Что это |
 |---------|--------|
-| Inventory | Список серверов (хостов) которыми управляет Ansible |
-| Playbook | YAML-файл с инструкциями: что сделать на каких серверах |
+| Inventory | Список серверов (хостов), которыми управляет Ansible. Файл `inventory.ini` |
+| Playbook | YAML-файл с инструкциями: что делать и на каких серверах |
 | Task | Одно действие в playbook (установить пакет, скопировать файл, запустить сервис) |
-| Module | Встроенная команда Ansible (apt, copy, systemd, template и др.) |
+| Module | Встроенная команда Ansible. `apt` — установить пакет, `copy` — скопировать файл, `file` — создать симлинк, `systemd` — управлять сервисом |
 | Idempotency | Можно запустить playbook 10 раз — результат тот же, лишнего не делает |
+| `become: true` | Выполнять задачи с правами sudo |
+| `state: present` | Убедиться что пакет установлен (если уже есть — ничего не делать) |
+| `state: started` | Убедиться что сервис запущен (если уже запущен — ничего не делать) |
+| `state: link` | Убедиться что симлинк существует |
+| `daemon_reload` | Перечитать юниты systemd после изменения файлов |
 
 **Почему Ansible лучше ручных шагов:**
 - **Повторяемость** — одинаковый результат на любом сервере
@@ -52,25 +84,31 @@ python3 log_parser.py --file /var/log/nginx/error.log --top 10
     Ansible читает playbook → подключается по SSH → выполняет задачи
 ```
 
----
+**`ansible_connection=local`** — особый режим: не идёт по SSH, выполняет задачи прямо на этой же машине.
 
-## Практические задания
+### Что делает playbook.yml (8 задач по порядку)
 
-### 1. log_parser.py
+1. **Install Nginx** — `apt: name=nginx state=present` — ставит Nginx если не установлен
+2. **Copy Nginx config** — `copy` — кладёт `myapp-proxy.conf` в `/etc/nginx/sites-available/myapp`
+3. **Enable Nginx site** — `file: state=link` — создаёт симлинк `/etc/nginx/sites-enabled/myapp → sites-available/myapp`
+4. **Copy myapp.service** — `copy` — кладёт юнит в `/etc/systemd/system/`
+5. **Copy myapp.timer** — `copy` — кладёт таймер в `/etc/systemd/system/`
+6. **Reload systemd** — `systemd: daemon_reload=true` — systemd перечитывает изменённые файлы
+7. **Start and enable Nginx** — `systemd: state=started enabled=true` — запускает Nginx и включает автозапуск
+8. **Start and enable myapp.timer** — `systemd: state=started enabled=true` — запускает таймер и включает автозапуск
 
-Python CLI-скрипт который читает лог-файл и считает топ ошибок.
+### Как читать вывод playbook
 
-### 2. Ansible playbook
+```
+TASK [Install Nginx]
+ok: [localhost]      ← уже установлен, ничего не делал
+changed: [localhost] ← сделал изменение (установил/скопировал/запустил)
+failed: [localhost]  ← ошибка, задача не выполнена
 
-Playbook который:
-1. Ставит Nginx
-2. Кладёт наш конфиг (из Sprint 03)
-3. Ставит systemd unit (из Sprint 02)
-4. Запускает сервис
-
-### 3. Проверка idempotency
-
-Запустить playbook два раза подряд → второй раз не должен ничего менять.
+PLAY RECAP
+changed=0  ← второй запуск, всё уже настроено → idempotency подтверждена
+changed=1  ← первый запуск, что-то изменил
+```
 
 ---
 
@@ -112,5 +150,8 @@ ansible-playbook -i inventory.ini playbook.yml --ask-become-pass
 - [x] `log_parser.py` считает топ ошибок из лог-файла
 - [x] Ansible playbook разворачивает Nginx + сервис одной командой
 - [x] Второй запуск playbook не ломает и не делает лишнего (idempotency)
-- [ ] Могу объяснить что такое idempotency
+- [ ] Могу объяснить что такое idempotency и почему `changed=0` это доказывает
+- [ ] Могу объяснить что делает каждый модуль: `apt`, `copy`, `file`, `systemd`
+- [ ] Могу объяснить зачем `daemon_reload` после копирования юнита
+- [ ] Могу объяснить как работает `argparse` и зачем нужен `Counter`
 - [ ] Могу объяснить почему Ansible лучше ручных шагов
