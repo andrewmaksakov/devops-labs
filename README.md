@@ -107,7 +107,7 @@ devops-labs/
 - `tools/log_parser.py` — топ ошибок по паттернам
 - Ansible playbook: Nginx + конфиг + systemd unit + запуск
 
-**Статус:** 🔄 В процессе
+**Статус:** ✅ Завершён
 
 ---
 
@@ -123,7 +123,7 @@ devops-labs/
 - `compose.yml` — сервис + Nginx (+ опционально Postgres)
 - `README.md` — одна команда для старта
 
-**Статус:** ⬜ Не начат
+**Статус:** 🔄 В процессе
 
 ---
 
